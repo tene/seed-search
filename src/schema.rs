@@ -33,6 +33,7 @@ table! {
         item_id -> Integer,
         level_id -> Integer,
         seed_id -> Integer,
+        price -> Integer,
     }
 }
 

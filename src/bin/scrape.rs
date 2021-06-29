@@ -32,7 +32,9 @@ pub struct Record {
     pub artefact: bool,
     #[serde(default)]
     pub unrand: bool,
+    pub price: Option<i32>,
     pub artprops: Option<HashMap<String, i32>>,
+    pub spells: Option<HashMap<i32, String>>, // XXX TODO Vec<String>
 }
 
 impl Record {
@@ -64,7 +66,7 @@ pub struct Scribe {
 
 impl Scribe {
     pub fn new() -> Self {
-        use schema::{item, level, seed};
+        use schema::{item, level};
         let mut conn = establish_connection();
         let item_ids = item::table
             .select((item::name, item::id))
@@ -104,7 +106,7 @@ impl Scribe {
     }
     pub fn allocate_seed_id(&mut self, seed: &String) -> anyhow::Result<i32> {
         // XXX TODO read version from `crawl -version`
-        let version_name = "0.27-a0-1332-g84bddb5ca7";
+        let version_name = "0.27-a0-1380-gf508b8f851";
         use schema::seed;
         let seed_id: i32 = match seed::table
             .select(seed::id)
@@ -150,6 +152,7 @@ impl Scribe {
                     item_seen::item_id.eq(item_id),
                     item_seen::level_id.eq(level_id),
                     item_seen::seed_id.eq(seed_id),
+                    item_seen::price.eq(rec.price.unwrap_or_default()),
                 ))
                 .execute(&mut self.conn)?;
         }
@@ -159,7 +162,7 @@ impl Scribe {
 
 fn main() {
     let mut scribe = Scribe::new();
-    for i in 1..1000 {
+    for i in 0..100000 {
         println!("Starting {}", i);
         scribe.scrape(&format!("{}", i)).expect("Failed to scrape");
     }

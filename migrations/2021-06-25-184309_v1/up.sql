@@ -40,7 +40,8 @@ CREATE TABLE item_seen (
     item_id INTEGER NOT NULL REFERENCES item(id),
     level_id INTEGER NOT NULL REFERENCES level(id),
     seed_id INTEGER NOT NULL REFERENCES seed(id),
-    UNIQUE (item_id, level_id, seed_id) ON CONFLICT IGNORE
+    price INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (item_id, level_id, seed_id, price) ON CONFLICT IGNORE
 );
 
 INSERT INTO
