@@ -2,3 +2,4 @@
 seeds.sqlite
 default.profraw
 *.jsonl
+cache

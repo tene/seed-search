@@ -1,6 +1,6 @@
 table! {
     artprops (id) {
-        id -> Nullable<Integer>,
+        id -> Integer,
         name -> Text,
         value -> Integer,
         item_id -> Integer,
@@ -9,8 +9,9 @@ table! {
 
 table! {
     item (id) {
-        id -> Nullable<Integer>,
+        id -> Integer,
         name -> Text,
+        basename -> Text,
         class -> Text,
         subtype -> Text,
         ego -> Nullable<Text>,
@@ -21,14 +22,14 @@ table! {
         encumbrance -> Nullable<Integer>,
         plus -> Nullable<Integer>,
         weap_skill -> Nullable<Text>,
-        artefact -> Nullable<Bool>,
-        unrand -> Nullable<Bool>,
+        artefact -> Bool,
+        unrand -> Bool,
     }
 }
 
 table! {
     item_seen (id) {
-        id -> Nullable<Integer>,
+        id -> Integer,
         item_id -> Integer,
         level_id -> Integer,
         seed_id -> Integer,
@@ -37,14 +38,15 @@ table! {
 
 table! {
     level (id) {
-        id -> Nullable<Integer>,
+        id -> Integer,
         name -> Text,
     }
 }
 
 table! {
     seed (id) {
-        id -> Nullable<Integer>,
+        id -> Integer,
+        seed_text -> Text,
         version -> Text,
     }
 }

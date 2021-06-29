@@ -1,11 +1,14 @@
 CREATE TABLE seed (
-    id INTEGER PRIMARY KEY,
-    version TEXT NOT NULL
+    id INTEGER PRIMARY KEY NOT NULL,
+    seed_text TEXT NOT NULL,
+    version TEXT NOT NULL,
+    UNIQUE (seed_text, version)
 );
 
 CREATE TABLE item (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL,
+    id INTEGER PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL UNIQUE ON CONFLICT IGNORE,
+    basename TEXT NOT NULL,
     class TEXT NOT NULL,
     subtype TEXT NOT NULL,
     ego TEXT,
@@ -16,27 +19,28 @@ CREATE TABLE item (
     encumbrance INTEGER,
     plus INTEGER,
     weap_skill TEXT,
-    artefact BOOLEAN,
-    unrand BOOLEAN
+    artefact BOOLEAN NOT NULL DEFAULT false,
+    unrand BOOLEAN NOT NULL DEFAULT false
 );
 
 CREATE TABLE artprops (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     value INTEGER NOT NULL,
     item_id INTEGER NOT NULL REFERENCES item(id)
 );
 
 CREATE TABLE level (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
+    id INTEGER PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE item_seen (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY NOT NULL,
     item_id INTEGER NOT NULL REFERENCES item(id),
     level_id INTEGER NOT NULL REFERENCES level(id),
-    seed_id INTEGER NOT NULL REFERENCES seed(id)
+    seed_id INTEGER NOT NULL REFERENCES seed(id),
+    UNIQUE (item_id, level_id, seed_id) ON CONFLICT IGNORE
 );
 
 INSERT INTO
@@ -109,6 +113,15 @@ VALUES
     ("Slime:3"),
     ("Slime:4"),
     ("Slime:5"),
+    ("Sewer"),
+    ("Ossuary"),
+    ("IceCv"),
+    ("Volcano"),
+    ("Bailey"),
+    ("Gauntlet"),
+    ("Bazaar"),
+    ("WizLab"),
+    ("Desolation"),
     ("Tomb:1"),
     ("Tomb:2"),
     ("Tomb:3"),

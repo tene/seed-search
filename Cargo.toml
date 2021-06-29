@@ -6,8 +6,15 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+dotenv = "0.15.0"
+serde_json = "1.0.64"
+anyhow = "1.0.41"
 
 [dependencies.diesel]
 version = "1.4.6"
 default-features = false
-features = ["sqlite", "serde_json"]
+features = ["sqlite", "serde_json", "numeric"]
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]

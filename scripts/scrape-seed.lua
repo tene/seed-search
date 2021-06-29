@@ -17,6 +17,49 @@ function item_artprops(item)
     return props
 end
 
+local unrand_names = {
+    "Singing Sword", "Wrath of Trog", "mace of Variability", "glaive of Prune",
+    "sword of Power", "staff of Olgreb", "staff of Wucad Mu", "Vampire's Tooth",
+    "scythe of Curses", "sceptre of Torment", "sword of Zonguldrok",
+    "sword of Cerebov", "staff of Dispater", "sceptre of Asmodeus",
+    "faerie dragon scales", "demon blade \"Bloodbane\"",
+    "scimitar of Flaming Death", "eveningstar \"Brilliance\"",
+    "demon blade \"Leech\"", "dagger of Chilly Death", "dagger \"Morg\"",
+    "scythe \"Finisher\"", "sling \"Punk\"", "longbow \"Zephyr\"",
+    "giant club \"Skullcrusher\"", "glaive of the Guard", "zealot's sword",
+    "arbalest \"Damnation\"", "sword of the Doom Knight", "morningstar \"Eos\"",
+    "spear of the Botono", "trident of the Octopus King",
+    "mithril axe \"Arga\"", "Elemental Staff", "heavy crossbow \"Sniper\"",
+    "longbow \"Piercer\"", "blowgun of the Assassin", "lance \"Wyrmbane\"",
+    "Spriggan's Knife", "plutonium sword", "great mace \"Undeadhunter\"",
+    "whip \"Snakebite\"", "knife of Accuracy", "Lehudib's crystal spear",
+    "captain's cutlass", "storm bow", "tower shield of Ignorance",
+    "robe of Augmentation", "cloak of the Thief", "tower shield \"Bullseye\"",
+    "crown of Dyrovepreva", "hat of the Bear Spirit", "robe of Misfortune",
+    "cloak of Flash", "hood of the Assassin", "Lear's hauberk", "skin of Zhor",
+    "salamander hide armour", "gauntlets of War", "shield of Resistance",
+    "robe of Folly", "Maxwell's patent armour", "mask of the Dragon",
+    "robe of Night", "scales of the Dragon King", "hat of the Alchemist",
+    "fencer's gloves", "cloak of Starlight", "ratskin cloak",
+    "shield of the Gong", "amulet of the Air", "ring of Shadows",
+    "amulet of Cekugob", "amulet of the Four Winds", "necklace of Bloodlust",
+    "ring of the Hare", "ring of the Tortoise", "ring of the Mage",
+    "brooch of Shielding", "robe of Clouds", "hat of Pondering", "obsidian axe",
+    "lightning scales", "Black Knight's barding", "amulet of Vitality",
+    "autumn katana", "shillelagh \"Devastator\"", "dragonskin cloak",
+    "ring of the Octopus King", "Axe of Woe", "moon troll leather armour",
+    "macabre finger necklace", "boots of the spider", "dark maul",
+    "hat of the High Council", "arc blade", "demon whip \"Spellbinder\"",
+    "lajatang of Order", "great mace \"Firestarter\"",
+    "orange crystal plate armour", "Majin-Bo",
+    "pair of quick blades \"Gyre\" and \"Gimble\"", "Maxwell's etheric cage",
+    "crown of Eternal Torment", "robe of Vines", "Kryia's mail coat",
+    "frozen axe \"Frostbite\"", "armour of Talos", "warlock's mirror",
+    "amulet of invisibility", "Maxwell's thermic engine",
+    "demon trident \"Rift\"", "staff of Battle", "Cigotuvi's embrace",
+    "seven-league boots"
+}
+
 function item_data(item)
     local attrs = {}
     -- item_data_helper(attrs, "branded", item)
@@ -51,6 +94,10 @@ function item_data(item)
         end
         attrs["artprops"] = props
     end
+    attrs["basename"] = item.name("base")
+    for _, name in pairs(unrand_names) do
+        if attrs["basename"] == name then attrs["unrand"] = true end
+    end
     return attrs
 end
 
@@ -62,6 +109,8 @@ function serialize_data_json(data)
             if type(val) == "table" then
                 val_s = serialize_data_json(val)
             elseif type(val) == "number" then
+                val_s = tostring(val)
+            elseif type(val) == "boolean" then
                 val_s = tostring(val)
             else
                 val_s = '"' .. tostring(val):gsub("\"", "\\\"") .. '"'
