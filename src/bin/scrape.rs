@@ -59,53 +59,52 @@ impl Record {
 }
 
 pub struct Scribe {
-    conn: SqliteConnection,
     item_ids: HashMap<String, i32>,
     level_ids: HashMap<String, i32>,
 }
 
 impl Scribe {
-    pub fn new() -> Self {
+    pub fn new(conn: &SqliteConnection) -> Self {
         use schema::{item, level};
-        let mut conn = establish_connection();
         let item_ids = item::table
             .select((item::name, item::id))
-            .load(&mut conn)
+            .load(conn)
             .expect("Failed to load items")
             .into_iter()
             .collect();
         let level_ids = level::table
             .select((level::name, level::id))
-            .load(&mut conn)
+            .load(conn)
             .expect("Failed to load items")
             .into_iter()
             .collect();
         Self {
-            conn,
             item_ids,
             level_ids,
         }
     }
-    pub fn find_or_insert_item(&mut self, rec: &Record) -> anyhow::Result<i32> {
+    pub fn find_or_insert_item(
+        &mut self,
+        rec: &Record,
+        conn: &SqliteConnection,
+    ) -> anyhow::Result<i32> {
         match self.item_ids.get(&rec.name) {
             Some(id) => Ok(*id),
             None => {
                 use schema::item::dsl::*;
                 //println!("New Item: {}", rec.name);
-                insert_into(item)
-                    .values(rec.new_item())
-                    .execute(&mut self.conn)?;
+                insert_into(item).values(rec.new_item()).execute(conn)?;
                 let new_id = item
                     .select(id)
                     .filter(name.eq(rec.name.as_str()))
-                    .first::<i32>(&mut self.conn)?;
+                    .first::<i32>(conn)?;
                 self.item_ids.insert(rec.name.clone(), new_id);
                 if let Some(recprops) = &rec.artprops {
                     use schema::artprops::dsl::*;
                     for (recprop, recvalue) in recprops.iter() {
                         insert_into(artprops)
                             .values((prop.eq(recprop), value.eq(recvalue), item_id.eq(new_id)))
-                            .execute(&self.conn)?;
+                            .execute(conn)?;
                     }
                 }
                 if let Some(recspells) = &rec.spells {
@@ -113,14 +112,18 @@ impl Scribe {
                     for spellname in recspells.values() {
                         insert_into(spell_book)
                             .values((spell.eq(spellname), item_id.eq(new_id)))
-                            .execute(&self.conn)?;
+                            .execute(conn)?;
                     }
                 }
                 Ok(new_id)
             }
         }
     }
-    pub fn allocate_seed_id(&mut self, seed: &String) -> anyhow::Result<i32> {
+    pub fn allocate_seed_id(
+        &mut self,
+        seed: &String,
+        conn: &SqliteConnection,
+    ) -> anyhow::Result<i32> {
         // XXX TODO read version from `crawl -version`
         let version_name = "0.27-a0-1380-gf508b8f851";
         use schema::seed;
@@ -128,7 +131,7 @@ impl Scribe {
             .select(seed::id)
             .filter(seed::seed_text.eq(seed))
             .filter(seed::version.eq(version_name))
-            .first::<i32>(&mut self.conn)
+            .first::<i32>(conn)
         {
             // skip already-processed seeds
             Ok(id) => {
@@ -137,19 +140,19 @@ impl Scribe {
             Err(_) => {
                 insert_into(seed::table)
                     .values((&seed::version.eq(version_name), &seed::seed_text.eq(seed)))
-                    .execute(&mut self.conn)?;
+                    .execute(conn)?;
                 seed::table
                     .filter(seed::version.eq(version_name))
                     .filter(seed::seed_text.eq(seed))
                     .select(seed::id)
-                    .first(&mut self.conn)?
+                    .first(conn)?
             }
         };
         Ok(seed_id)
     }
-    pub fn scrape(&mut self, seed: &String) -> anyhow::Result<()> {
+    pub fn scrape(&mut self, seed: &String, conn: &SqliteConnection) -> anyhow::Result<()> {
         use schema::*;
-        let seed_id = self.allocate_seed_id(seed)?;
+        let seed_id = self.allocate_seed_id(seed, conn)?;
         let output = Command::new("scripts/run-scrape.sh").arg(seed).output()?;
         let records = serde_json::Deserializer::from_slice(&output.stdout).into_iter::<Record>();
         for rec in records {
@@ -160,15 +163,15 @@ impl Scribe {
                     continue;
                 }
             };
-            if rec.unrand {
-                match rec.price {
-                    Some(price) => println!("{} [{}G] {}", rec.level, price, rec.name),
-                    None => println!("{} {}", rec.level, rec.name),
-                };
-            }
+            // if rec.unrand {
+            //     match rec.price {
+            //         Some(price) => println!("{} [{}G] {}", rec.level, price, rec.name),
+            //         None => println!("{} {}", rec.level, rec.name),
+            //     };
+            // }
             //println!("{:?}", rec);
             let level_id = *self.level_ids.get(&rec.level).expect("Missing level id");
-            let item_id = self.find_or_insert_item(&rec)?;
+            let item_id = self.find_or_insert_item(&rec, conn)?;
             insert_into(item_seen::table)
                 .values((
                     item_seen::item_id.eq(item_id),
@@ -176,16 +179,23 @@ impl Scribe {
                     item_seen::seed_id.eq(seed_id),
                     item_seen::price.eq(rec.price.unwrap_or_default()),
                 ))
-                .execute(&mut self.conn)?;
+                .execute(conn)?;
         }
         Ok(())
     }
 }
 
-fn main() {
-    let mut scribe = Scribe::new();
+fn main() -> anyhow::Result<()> {
+    let conn = &establish_connection();
+    let mut scribe = Scribe::new(conn);
     for i in 0..100000 {
         println!("Starting {}", i);
-        scribe.scrape(&format!("{}", i)).expect("Failed to scrape");
+        conn.transaction::<(), anyhow::Error, _>(|| {
+            scribe
+                .scrape(&format!("{}", i), conn)
+                .expect("Failed to scrape");
+            Ok(())
+        })?;
     }
+    Ok(())
 }
