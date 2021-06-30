@@ -1,9 +1,9 @@
 table! {
     artprops (id) {
         id -> Integer,
-        name -> Text,
-        value -> Integer,
         item_id -> Integer,
+        prop -> Text,
+        value -> Integer,
     }
 }
 
@@ -52,10 +52,19 @@ table! {
     }
 }
 
+table! {
+    spell_book (id) {
+        id -> Integer,
+        item_id -> Integer,
+        spell -> Text,
+    }
+}
+
 joinable!(artprops -> item (item_id));
 joinable!(item_seen -> item (item_id));
 joinable!(item_seen -> level (level_id));
 joinable!(item_seen -> seed (seed_id));
+joinable!(spell_book -> item (item_id));
 
 allow_tables_to_appear_in_same_query!(
     artprops,
@@ -63,4 +72,5 @@ allow_tables_to_appear_in_same_query!(
     item_seen,
     level,
     seed,
+    spell_book,
 );

@@ -91,7 +91,7 @@ impl Scribe {
             Some(id) => Ok(*id),
             None => {
                 use schema::item::dsl::*;
-                println!("New Item: {}", rec.name);
+                //println!("New Item: {}", rec.name);
                 insert_into(item)
                     .values(rec.new_item())
                     .execute(&mut self.conn)?;
@@ -100,6 +100,22 @@ impl Scribe {
                     .filter(name.eq(rec.name.as_str()))
                     .first::<i32>(&mut self.conn)?;
                 self.item_ids.insert(rec.name.clone(), new_id);
+                if let Some(recprops) = &rec.artprops {
+                    use schema::artprops::dsl::*;
+                    for (recprop, recvalue) in recprops.iter() {
+                        insert_into(artprops)
+                            .values((prop.eq(recprop), value.eq(recvalue), item_id.eq(new_id)))
+                            .execute(&self.conn)?;
+                    }
+                }
+                if let Some(recspells) = &rec.spells {
+                    use schema::spell_book::dsl::*;
+                    for spellname in recspells.values() {
+                        insert_into(spell_book)
+                            .values((spell.eq(spellname), item_id.eq(new_id)))
+                            .execute(&self.conn)?;
+                    }
+                }
                 Ok(new_id)
             }
         }
@@ -144,6 +160,12 @@ impl Scribe {
                     continue;
                 }
             };
+            if rec.unrand {
+                match rec.price {
+                    Some(price) => println!("{} [{}G] {}", rec.level, price, rec.name),
+                    None => println!("{} {}", rec.level, rec.name),
+                };
+            }
             //println!("{:?}", rec);
             let level_id = *self.level_ids.get(&rec.level).expect("Missing level id");
             let item_id = self.find_or_insert_item(&rec)?;

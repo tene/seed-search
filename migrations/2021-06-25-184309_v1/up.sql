@@ -23,16 +23,22 @@ CREATE TABLE item (
     unrand BOOLEAN NOT NULL DEFAULT false
 );
 
-CREATE TABLE artprops (
-    id INTEGER PRIMARY KEY NOT NULL,
-    name TEXT NOT NULL,
-    value INTEGER NOT NULL,
-    item_id INTEGER NOT NULL REFERENCES item(id)
-);
-
 CREATE TABLE level (
     id INTEGER PRIMARY KEY NOT NULL,
     name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE spell_book (
+    id INTEGER PRIMARY KEY NOT NULL,
+    item_id INTEGER NOT NULL REFERENCES item(id),
+    spell TEXT NOT NULL
+);
+
+CREATE TABLE artprops (
+    id INTEGER PRIMARY KEY NOT NULL,
+    item_id INTEGER NOT NULL REFERENCES item(id),
+    prop TEXT NOT NULL,
+    value INTEGER NOT NULL
 );
 
 CREATE TABLE item_seen (
