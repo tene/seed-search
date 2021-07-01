@@ -7,3 +7,5 @@ DROP TABLE artprops;
 DROP TABLE item;
 
 DROP TABLE seed;
+
+DROP TABLE spell_book;

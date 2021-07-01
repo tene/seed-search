@@ -123,9 +123,9 @@ impl Scribe {
         &mut self,
         seed: &String,
         conn: &SqliteConnection,
-    ) -> anyhow::Result<i32> {
+    ) -> anyhow::Result<Option<i32>> {
         // XXX TODO read version from `crawl -version`
-        let version_name = "0.27-a0-1380-gf508b8f851";
+        let version_name = "0.27-a0-1415-g413ade4df3";
         use schema::seed;
         let seed_id: i32 = match seed::table
             .select(seed::id)
@@ -134,8 +134,9 @@ impl Scribe {
             .first::<i32>(conn)
         {
             // skip already-processed seeds
-            Ok(id) => {
-                return Ok(id);
+            // XXX TODO add a flag to choose this
+            Ok(_id) => {
+                return Ok(None);
             }
             Err(_) => {
                 insert_into(seed::table)
@@ -148,40 +149,47 @@ impl Scribe {
                     .first(conn)?
             }
         };
-        Ok(seed_id)
+        Ok(Some(seed_id))
     }
-    pub fn scrape(&mut self, seed: &String, conn: &SqliteConnection) -> anyhow::Result<()> {
+    pub fn scrape<I: IntoIterator<Item = Record>>(
+        &mut self,
+        seed: &String,
+        records: I,
+        conn: &SqliteConnection,
+    ) -> anyhow::Result<()> {
         use schema::*;
-        let seed_id = self.allocate_seed_id(seed, conn)?;
-        let output = Command::new("scripts/run-scrape.sh").arg(seed).output()?;
-        let records = serde_json::Deserializer::from_slice(&output.stdout).into_iter::<Record>();
-        for rec in records {
-            let rec = match rec {
-                Ok(rec) => rec,
-                Err(e) => {
-                    println!("Warning: {}", e);
-                    continue;
-                }
+
+        conn.transaction::<(), anyhow::Error, _>(|| {
+            //let seed_id = self.allocate_seed_id(seed, conn)?;
+            let seed_id = match self.allocate_seed_id(seed, conn)? {
+                Some(id) => id,
+                // skip already-handled seeds.
+                // XXX TODO add a flag to choose this
+                None => return Ok(()),
             };
-            // if rec.unrand {
-            //     match rec.price {
-            //         Some(price) => println!("{} [{}G] {}", rec.level, price, rec.name),
-            //         None => println!("{} {}", rec.level, rec.name),
-            //     };
-            // }
-            //println!("{:?}", rec);
-            let level_id = *self.level_ids.get(&rec.level).expect("Missing level id");
-            let item_id = self.find_or_insert_item(&rec, conn)?;
-            insert_into(item_seen::table)
-                .values((
-                    item_seen::item_id.eq(item_id),
-                    item_seen::level_id.eq(level_id),
-                    item_seen::seed_id.eq(seed_id),
-                    item_seen::price.eq(rec.price.unwrap_or_default()),
-                ))
-                .execute(conn)?;
-        }
-        Ok(())
+            println!("Recording {}", seed);
+
+            for rec in records.into_iter() {
+                // if rec.unrand {
+                //     match rec.price {
+                //         Some(price) => println!("{} [{}G] {}", rec.level, price, rec.name),
+                //         None => println!("{} {}", rec.level, rec.name),
+                //     };
+                // }
+                //println!("{:?}", rec);
+                let level_id = *self.level_ids.get(&rec.level).expect("Missing level id");
+                let item_id = self.find_or_insert_item(&rec, conn)?;
+                insert_into(item_seen::table)
+                    .values((
+                        item_seen::item_id.eq(item_id),
+                        item_seen::level_id.eq(level_id),
+                        item_seen::seed_id.eq(seed_id),
+                        item_seen::price.eq(rec.price.unwrap_or_default()),
+                    ))
+                    .execute(conn)?;
+            }
+            Ok(())
+        })
     }
 }
 
@@ -189,13 +197,17 @@ fn main() -> anyhow::Result<()> {
     let conn = &establish_connection();
     let mut scribe = Scribe::new(conn);
     for i in 0..100000 {
-        println!("Starting {}", i);
-        conn.transaction::<(), anyhow::Error, _>(|| {
-            scribe
-                .scrape(&format!("{}", i), conn)
-                .expect("Failed to scrape");
-            Ok(())
-        })?;
+        println!("Crawling {}", i);
+        let seed = &format!("{}", i);
+
+        let output = Command::new("scripts/run-scrape.sh").arg(seed).output()?;
+        let records = serde_json::Deserializer::from_slice(&output.stdout)
+            .into_iter::<Record>()
+            .filter_map(Result::ok);
+
+        scribe
+            .scrape(seed, records, conn)
+            .expect("Failed to scrape");
     }
     Ok(())
 }
