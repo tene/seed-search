@@ -57,7 +57,7 @@ local unrand_names = {
     "frozen axe \"Frostbite\"", "armour of Talos", "warlock's mirror",
     "amulet of invisibility", "Maxwell's thermic engine",
     "demon trident \"Rift\"", "staff of Battle", "Cigotuvi's embrace",
-    "seven-league boots"
+    "seven-league boots", "pair of seven-league boots"
 }
 
 function item_data(item)

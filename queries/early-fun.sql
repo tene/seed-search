@@ -27,9 +27,16 @@ FROM (
              select name
              from fun
          )
-           AND level.id < 52
+           --AND level.id < 52
            AND price = 0
+         and seed_text = '1999'
          order by item.name, level.id
      )
 group by name
-order by min(depth)
+order by min(depth);
+
+select * from item_seen join item on item_seen.item_id = item.id where (
+    seed_id = 2000 and item.unrand = true)
+OR item_seen.id=9794288
+order by level_id;
+select * from item_seen where id=9794288;
