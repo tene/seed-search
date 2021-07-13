@@ -15,7 +15,7 @@ FROM item_seen
      artprops ON item.id = artprops.item_id
 WHERE item.unrand
   AND level.id < 55
-  AND item_seen.seed_id IN (24)
+  AND item_seen.seed_id IN (2000)
 --  AND price = 0
 --  GROUP BY item.id, price
 GROUP BY item.id, seed_id

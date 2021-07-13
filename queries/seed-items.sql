@@ -17,7 +17,7 @@ FROM item_seen
      artprops ON item.id = artprops.item_id
          LEFT OUTER JOIN
      spell_book ON item.id = spell_book.item_id
-WHERE seed.seed_text IN ('7423','2913')
+WHERE seed.seed_text IN ('1999')
   AND level.id < 25
   AND (item.artefact = true OR
        item.class IN ('Jewellery') OR

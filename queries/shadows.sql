@@ -90,7 +90,7 @@ from (select seed_text,
                        AND level_id < 52
                      group by item_seen.seed_id
 
-                     having sum(item.artefact) = 2
+                     having sum(item.artefact) = 3
           order by avg(level_id) asc
       )
       group by seed_text
