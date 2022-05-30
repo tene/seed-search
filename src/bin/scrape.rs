@@ -202,11 +202,11 @@ fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     use rayon::prelude::*;
-    let conn = &establish_connection();
+    let conn = &establish_traced_connection();
     let scribe = Scribe::new(conn);
 
     (0..1000000).into_par_iter().try_for_each_init(
-        || establish_connection(),
+        || establish_traced_connection(),
         |conn, i: usize| {
             let seed = &format!("{}", i);
             let output = Command::new("scripts/run-scrape.sh").arg(seed).output()?;
