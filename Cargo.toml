@@ -11,6 +11,9 @@ serde_json = "1.0.64"
 anyhow = "1.0.41"
 rayon = "1.5.3"
 dashmap = "5.3.4"
+diesel-tracing = { version = "0.1.5", features = ["sqlite"] }
+tracing-subscriber = "0.3"
+
 
 [dependencies.diesel]
 version = "1.4.6"

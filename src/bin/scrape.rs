@@ -199,6 +199,8 @@ impl Scribe {
 }
 
 fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt::init();
+
     use rayon::prelude::*;
     let conn = &establish_connection();
     let scribe = Scribe::new(conn);
