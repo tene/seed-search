@@ -151,6 +151,7 @@ impl Scribe {
                     .first(conn)?
             }
         };
+        println!("Scraping {}={}", seed_id, seed);
         Ok(Some(seed_id))
     }
     pub fn scrape<I: IntoIterator<Item = Record>>(
@@ -207,6 +208,7 @@ fn main() -> anyhow::Result<()> {
         |conn, i: usize| {
             let seed = &format!("{}", i);
             let output = Command::new("scripts/run-scrape.sh").arg(seed).output()?;
+            println!("Finished {}", seed);
             let records = serde_json::Deserializer::from_slice(&output.stdout)
                 .into_iter::<Record>()
                 .filter_map(Result::ok);
