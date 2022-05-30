@@ -65,7 +65,7 @@ pub struct Scribe {
 }
 
 impl Scribe {
-    pub fn new(conn: &SqliteConnection) -> Self {
+    pub fn new(conn: &impl diesel::Connection<Backend = diesel::sqlite::Sqlite>) -> Self {
         use schema::{item, level};
         let item_ids = item::table
             .select((item::name, item::id))
@@ -87,7 +87,7 @@ impl Scribe {
     pub fn find_or_insert_item(
         &self,
         rec: &Record,
-        conn: &SqliteConnection,
+        conn: &impl diesel::Connection<Backend = diesel::sqlite::Sqlite>,
     ) -> anyhow::Result<i32> {
         self.item_ids
             .entry(rec.name.clone())
@@ -123,7 +123,7 @@ impl Scribe {
     pub fn allocate_seed_id(
         &self,
         seed: &String,
-        conn: &SqliteConnection,
+        conn: &impl diesel::Connection<Backend = diesel::sqlite::Sqlite>,
     ) -> anyhow::Result<Option<i32>> {
         // XXX TODO read version from `crawl -version`
         let version_name = "0.28.0";
@@ -158,7 +158,7 @@ impl Scribe {
         &self,
         seed: &String,
         records: I,
-        conn: &SqliteConnection,
+        conn: &impl diesel::Connection<Backend = diesel::sqlite::Sqlite>,
     ) -> anyhow::Result<()> {
         use schema::*;
 
@@ -214,7 +214,7 @@ fn main() -> anyhow::Result<()> {
             let records = serde_json::Deserializer::from_slice(&output.stdout)
                 .into_iter::<Record>()
                 .filter_map(Result::ok);
-            scribe.scrape(seed, records, &conn)?;
+            scribe.scrape(seed, records, conn)?;
             Ok(())
         },
     )
