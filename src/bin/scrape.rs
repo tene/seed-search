@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::process::Command;
 
 use anyhow;
+use dashmap::DashMap;
 use diesel::insert_into;
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -59,8 +60,8 @@ impl Record {
 }
 
 pub struct Scribe {
-    item_ids: HashMap<String, i32>,
-    level_ids: HashMap<String, i32>,
+    item_ids: DashMap<String, i32>,
+    level_ids: DashMap<String, i32>,
 }
 
 impl Scribe {
@@ -84,13 +85,13 @@ impl Scribe {
         }
     }
     pub fn find_or_insert_item(
-        &mut self,
+        &self,
         rec: &Record,
         conn: &SqliteConnection,
     ) -> anyhow::Result<i32> {
-        match self.item_ids.get(&rec.name) {
-            Some(id) => Ok(*id),
-            None => {
+        self.item_ids
+            .entry(rec.name.clone())
+            .or_try_insert_with(|| {
                 use schema::item::dsl::*;
                 //println!("New Item: {}", rec.name);
                 insert_into(item).values(rec.new_item()).execute(conn)?;
@@ -116,16 +117,16 @@ impl Scribe {
                     }
                 }
                 Ok(new_id)
-            }
-        }
+            })
+            .map(|v| *v)
     }
     pub fn allocate_seed_id(
-        &mut self,
+        &self,
         seed: &String,
         conn: &SqliteConnection,
     ) -> anyhow::Result<Option<i32>> {
         // XXX TODO read version from `crawl -version`
-        let version_name = "0.27-a0-1548-gf8a67e7463";
+        let version_name = "0.28.0";
         use schema::seed;
         let seed_id: i32 = match seed::table
             .select(seed::id)
@@ -153,7 +154,7 @@ impl Scribe {
         Ok(Some(seed_id))
     }
     pub fn scrape<I: IntoIterator<Item = Record>>(
-        &mut self,
+        &self,
         seed: &String,
         records: I,
         conn: &SqliteConnection,
@@ -197,20 +198,20 @@ impl Scribe {
 }
 
 fn main() -> anyhow::Result<()> {
+    use rayon::prelude::*;
     let conn = &establish_connection();
-    let mut scribe = Scribe::new(conn);
-    for i in 20000..50000 {
-        println!("Crawling {}", i);
-        let seed = &format!("{}", i);
+    let scribe = Scribe::new(conn);
 
-        let output = Command::new("scripts/run-scrape.sh").arg(seed).output()?;
-        let records = serde_json::Deserializer::from_slice(&output.stdout)
-            .into_iter::<Record>()
-            .filter_map(Result::ok);
-
-        scribe
-            .scrape(seed, records, conn)
-            .expect("Failed to scrape");
-    }
-    Ok(())
+    (0..1000000).into_par_iter().try_for_each_init(
+        || establish_connection(),
+        |conn, i: usize| {
+            let seed = &format!("{}", i);
+            let output = Command::new("scripts/run-scrape.sh").arg(seed).output()?;
+            let records = serde_json::Deserializer::from_slice(&output.stdout)
+                .into_iter::<Record>()
+                .filter_map(Result::ok);
+            scribe.scrape(seed, records, &conn)?;
+            Ok(())
+        },
+    )
 }
