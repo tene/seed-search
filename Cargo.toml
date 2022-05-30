@@ -13,7 +13,8 @@ rayon = "1.5.3"
 dashmap = "5.3.4"
 diesel-tracing = { version = "0.1.5", features = ["sqlite"] }
 tracing-subscriber = "0.3"
-
+tracing = {version = "0.1.34", features = ["attributes"]}
+crossbeam = "0.8.1"
 
 [dependencies.diesel]
 version = "1.4.6"

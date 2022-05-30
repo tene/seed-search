@@ -15,4 +15,4 @@ if [ ! -f "$cache" ] ; then
     "$CRAWL_PATH"/crawl-ref/source/util/fake_pty "$CRAWL_PATH"/crawl-ref/source/crawl -script scrape-seed.lua "$SEED" 2>&1 | sed '/^$/d' | gzip > "$cache"
 fi
 
-zcat "$cache"
+gzip -d < "$cache"

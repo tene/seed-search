@@ -7,12 +7,16 @@ use self::seed_search::*;
 
 use std::collections::HashMap;
 use std::process::Command;
+use std::process::Output;
 
 use anyhow;
+use crossbeam::channel::Receiver;
+use crossbeam::channel::Sender;
 use dashmap::DashMap;
 use diesel::insert_into;
 use serde::{Deserialize, Serialize};
 use serde_json;
+use tracing::{debug, info, instrument};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Record {
@@ -84,6 +88,7 @@ impl Scribe {
             level_ids,
         }
     }
+    #[instrument(skip(self, conn))]
     pub fn find_or_insert_item(
         &self,
         rec: &Record,
@@ -93,6 +98,7 @@ impl Scribe {
             .entry(rec.name.clone())
             .or_try_insert_with(|| {
                 use schema::item::dsl::*;
+                debug!(?rec, "New item");
                 //println!("New Item: {}", rec.name);
                 insert_into(item).values(rec.new_item()).execute(conn)?;
                 let new_id = item
@@ -120,6 +126,7 @@ impl Scribe {
             })
             .map(|v| *v)
     }
+    #[instrument(skip(self, conn))]
     pub fn allocate_seed_id(
         &self,
         seed: &String,
@@ -137,7 +144,7 @@ impl Scribe {
             // skip already-processed seeds
             // XXX TODO add a flag to choose this
             Ok(id) => {
-                println!("Skipping {}={}", id, seed);
+                info!("Skipping {}={}", id, seed);
                 return Ok(None);
             }
             Err(_) => {
@@ -151,9 +158,10 @@ impl Scribe {
                     .first(conn)?
             }
         };
-        println!("Scraping {}={}", seed_id, seed);
+        info!(seed = seed_id, "Scraping");
         Ok(Some(seed_id))
     }
+    #[instrument(skip(self, conn, records))]
     pub fn scrape<I: IntoIterator<Item = Record>>(
         &self,
         seed: &String,
@@ -172,7 +180,7 @@ impl Scribe {
                     return Ok(());
                 }
             };
-            println!("Recording {}", seed);
+            info!(seed = seed_id, "Recording");
 
             for rec in records.into_iter() {
                 // if rec.unrand {
@@ -202,20 +210,29 @@ fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     use rayon::prelude::*;
-    let conn = &establish_traced_connection();
-    let scribe = Scribe::new(conn);
 
-    (0..1000000).into_par_iter().try_for_each_init(
-        || establish_traced_connection(),
-        |conn, i: usize| {
-            let seed = &format!("{}", i);
-            let output = Command::new("scripts/run-scrape.sh").arg(seed).output()?;
-            println!("Finished {}", seed);
+    let (tx, rx): (Sender<(String, Output)>, Receiver<(String, Output)>) =
+        crossbeam::channel::unbounded();
+    let hdl = std::thread::spawn(move || {
+        let conn = &establish_traced_connection();
+        let scribe = Scribe::new(conn);
+        for (seed, output) in rx {
             let records = serde_json::Deserializer::from_slice(&output.stdout)
                 .into_iter::<Record>()
                 .filter_map(Result::ok);
-            scribe.scrape(seed, records, conn)?;
-            Ok(())
-        },
-    )
+            scribe
+                .scrape(&seed, records, conn)
+                .expect("failed to scrape?");
+        }
+    });
+
+    let rv = (0..1000000).into_par_iter().try_for_each(|i: usize| {
+        let seed = format!("{}", i);
+        let output: Output = Command::new("scripts/run-scrape.sh").arg(&seed).output()?;
+        tx.send((seed, output))?;
+        Ok(())
+    });
+
+    let _ = hdl.join();
+    rv
 }
