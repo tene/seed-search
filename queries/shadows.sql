@@ -1,15 +1,15 @@
 select seed.seed_text,
        count(*)             as num,
        sum(item.artefact)   as num_arts,
-       sum(item_seen.price) as total,
+       sum(its.price) as total,
        group_concat(
                printf("%s [%d] %s", level.name, price, item.basename),
                ", "
            )
 from item_seen its
-         join seed on item_seen.seed_id = seed.id
-         join item on item_seen.item_id = item.id
-         join level on item_seen.level_id = level.id
+         join seed on its.seed_id = seed.id
+         join item on its.item_id = item.id
+         join level on its.level_id = level.id
 where (
         item.basename in ('robe of Night', 'hood of the Assassin')
 --        OR ( item.ego = 'shadows' and price = 0)
@@ -24,13 +24,18 @@ order by num_arts desc,
 --         num desc,
          avg(level.id) asc;
 
-select printf('|%s|%s|%s|%s|%s|%s|', seed_text,
+select scarfs,
+              robes,
+              hoods,
+              rifts,
+              rings,
+       printf('|%s|%s|%s|%s|%s|%s|', seed_text,
               scarfs,
               robes,
               hoods,
               rifts,
               rings
-           )
+           ) as row
 from (select seed_text,
              (select printf('%s [%d]', level.name, item_seen.price)
               from item_seen

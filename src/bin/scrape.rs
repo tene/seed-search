@@ -125,7 +125,7 @@ impl Scribe {
         conn: &SqliteConnection,
     ) -> anyhow::Result<Option<i32>> {
         // XXX TODO read version from `crawl -version`
-        let version_name = "0.27-a0-1415-g413ade4df3";
+        let version_name = "0.27-a0-1548-gf8a67e7463";
         use schema::seed;
         let seed_id: i32 = match seed::table
             .select(seed::id)
@@ -135,7 +135,8 @@ impl Scribe {
         {
             // skip already-processed seeds
             // XXX TODO add a flag to choose this
-            Ok(_id) => {
+            Ok(id) => {
+                println!("Skipping {}={}", id, seed);
                 return Ok(None);
             }
             Err(_) => {
@@ -165,7 +166,9 @@ impl Scribe {
                 Some(id) => id,
                 // skip already-handled seeds.
                 // XXX TODO add a flag to choose this
-                None => return Ok(()),
+                None => {
+                    return Ok(());
+                }
             };
             println!("Recording {}", seed);
 
@@ -196,7 +199,7 @@ impl Scribe {
 fn main() -> anyhow::Result<()> {
     let conn = &establish_connection();
     let mut scribe = Scribe::new(conn);
-    for i in 0..100000 {
+    for i in 20000..50000 {
         println!("Crawling {}", i);
         let seed = &format!("{}", i);
 
