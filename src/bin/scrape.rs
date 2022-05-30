@@ -12,7 +12,6 @@ use std::process::Output;
 use anyhow;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
-use dashmap::DashMap;
 use diesel::insert_into;
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -64,8 +63,8 @@ impl Record {
 }
 
 pub struct Scribe {
-    item_ids: DashMap<String, i32>,
-    level_ids: DashMap<String, i32>,
+    item_ids: HashMap<String, i32>,
+    level_ids: HashMap<String, i32>,
 }
 
 impl Scribe {
@@ -90,13 +89,13 @@ impl Scribe {
     }
     #[instrument(skip(self, conn))]
     pub fn find_or_insert_item(
-        &self,
+        &mut self,
         rec: &Record,
         conn: &impl diesel::Connection<Backend = diesel::sqlite::Sqlite>,
     ) -> anyhow::Result<i32> {
-        self.item_ids
-            .entry(rec.name.clone())
-            .or_try_insert_with(|| {
+        match self.item_ids.entry(rec.name.clone()) {
+            std::collections::hash_map::Entry::Occupied(id) => Ok(*id.get()),
+            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
                 use schema::item::dsl::*;
                 debug!(?rec, "New item");
                 //println!("New Item: {}", rec.name);
@@ -105,7 +104,7 @@ impl Scribe {
                     .select(id)
                     .filter(name.eq(rec.name.as_str()))
                     .first::<i32>(conn)?;
-                self.item_ids.insert(rec.name.clone(), new_id);
+                vacant_entry.insert(new_id);
                 if let Some(recprops) = &rec.artprops {
                     use schema::artprops::dsl::*;
                     for (recprop, recvalue) in recprops.iter() {
@@ -123,10 +122,10 @@ impl Scribe {
                     }
                 }
                 Ok(new_id)
-            })
-            .map(|v| *v)
+            }
+        }
     }
-    #[instrument(skip(self, conn))]
+    //#[instrument(skip(self, conn))]
     pub fn allocate_seed_id(
         &self,
         seed: &String,
@@ -158,12 +157,11 @@ impl Scribe {
                     .first(conn)?
             }
         };
-        info!(seed = seed_id, "Scraping");
         Ok(Some(seed_id))
     }
     #[instrument(skip(self, conn, records))]
     pub fn scrape<I: IntoIterator<Item = Record>>(
-        &self,
+        &mut self,
         seed: &String,
         records: I,
         conn: &impl diesel::Connection<Backend = diesel::sqlite::Sqlite>,
@@ -201,6 +199,7 @@ impl Scribe {
                     ))
                     .execute(conn)?;
             }
+            info!(seed = seed_id, "Finished");
             Ok(())
         })
     }
@@ -215,7 +214,7 @@ fn main() -> anyhow::Result<()> {
         crossbeam::channel::unbounded();
     let hdl = std::thread::spawn(move || {
         let conn = &establish_traced_connection();
-        let scribe = Scribe::new(conn);
+        let mut scribe = Scribe::new(conn);
         for (seed, output) in rx {
             let records = serde_json::Deserializer::from_slice(&output.stdout)
                 .into_iter::<Record>()
@@ -228,6 +227,7 @@ fn main() -> anyhow::Result<()> {
 
     let rv = (0..1000000).into_par_iter().try_for_each(|i: usize| {
         let seed = format!("{}", i);
+        info!(seed = i, "Checking");
         let output: Output = Command::new("scripts/run-scrape.sh").arg(&seed).output()?;
         tx.send((seed, output))?;
         Ok(())
